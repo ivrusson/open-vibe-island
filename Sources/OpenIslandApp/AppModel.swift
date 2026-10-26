@@ -70,6 +70,8 @@ final class AppModel {
     let discovery = SessionDiscoveryCoordinator()
     let monitoring = ProcessMonitoringCoordinator()
     let codexAppServer = CodexAppServerCoordinator()
+    let openChamberOpenCode = OpenChamberOpenCodeCoordinator()
+    let t3CodeServer = T3CodeServerCoordinator()
     let updateChecker = UpdateChecker()
 
     var notchStatus: NotchStatus {
@@ -754,6 +756,45 @@ final class AppModel {
         }
         monitoring.onCodexAppMaintenanceTick = { [weak self] in
             self?.discovery.maintainCodexAppSessionsIfNeeded()
+        }
+
+        openChamberOpenCode.onEvent = { [weak self] event in
+            self?.applyTrackedEvent(event, ingress: .bridge)
+        }
+        openChamberOpenCode.onStatusMessage = { [weak self] message in
+            self?.lastActionMessage = message
+        }
+        openChamberOpenCode.isSessionTracked = { [weak self] id in
+            self?.state.session(id: id) != nil
+        }
+        monitoring.onOpenChamberRunningChanged = { [weak self] isRunning in
+            guard let self else { return }
+            if isRunning {
+                self.openChamberOpenCode.ensureConnected()
+            } else {
+                self.openChamberOpenCode.disconnect()
+            }
+        }
+        monitoring.onOpenChamberMaintenanceTick = { [weak self] in
+            self?.openChamberOpenCode.refreshSessionsIfConnected()
+        }
+
+        t3CodeServer.onEvent = { [weak self] event in
+            self?.applyTrackedEvent(event, ingress: .bridge)
+        }
+        t3CodeServer.onStatusMessage = { [weak self] message in
+            self?.lastActionMessage = message
+        }
+        t3CodeServer.isSessionTracked = { [weak self] id in
+            self?.state.session(id: id) != nil
+        }
+        monitoring.onT3CodeRunningChanged = { [weak self] isRunning in
+            guard let self else { return }
+            if isRunning {
+                self.t3CodeServer.ensureConnected()
+            } else {
+                self.t3CodeServer.disconnect()
+            }
         }
         refreshOverlayDisplayConfiguration()
         hasFinishedInit = true

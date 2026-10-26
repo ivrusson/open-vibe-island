@@ -345,10 +345,6 @@ final class HookInstallationCoordinator {
             return "managed plugin present in \(status.pluginsDirectory.path)"
         }
 
-        if status.pluginFilePresent && !status.pluginRegistered {
-            return "plugin file present but not registered in config.json"
-        }
-
         return "no managed OpenCode plugin"
     }
 

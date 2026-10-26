@@ -33,6 +33,18 @@ final class ProcessMonitoringCoordinator {
     @ObservationIgnored
     var onCodexAppMaintenanceTick: (() -> Void)?
 
+    /// Fires when OpenChamber desktop is detected as running / no longer running.
+    @ObservationIgnored
+    var onOpenChamberRunningChanged: ((_ isRunning: Bool) -> Void)?
+
+    /// Fires on each full reconcile while OpenChamber is running.
+    @ObservationIgnored
+    var onOpenChamberMaintenanceTick: (() -> Void)?
+
+    /// Fires when T3 Code is detected as running / no longer running.
+    @ObservationIgnored
+    var onT3CodeRunningChanged: ((_ isRunning: Bool) -> Void)?
+
     @ObservationIgnored
     let activeAgentProcessDiscovery = ActiveAgentProcessDiscovery()
 
@@ -48,6 +60,12 @@ final class ProcessMonitoringCoordinator {
     @ObservationIgnored
     private var wasCodexAppRunning = false
 
+    @ObservationIgnored
+    private var wasOpenChamberRunning = false
+
+    @ObservationIgnored
+    private var wasT3CodeRunning = false
+
     private static let startupPollInterval: TimeInterval = 2
     private static let codexAppRunningProbeInterval: TimeInterval = 2
     private static let activePollInterval: TimeInterval = 60
@@ -56,6 +74,8 @@ final class ProcessMonitoringCoordinator {
     private static let codexAppStalenessTimeout: TimeInterval = 600  // 10 minutes
     private static let claudeDesktopStalenessTimeout: TimeInterval = 600  // 10 minutes
     private static let conductorStalenessTimeout: TimeInterval = 600  // 10 minutes
+    private static let openChamberStalenessTimeout: TimeInterval = 600  // 10 minutes
+    private static let t3CodeStalenessTimeout: TimeInterval = 600  // 10 minutes
     private static let hermesStalenessTimeout: TimeInterval = 600  // 10 minutes
     private static let piHeartbeatTimeout: TimeInterval = 45
 
@@ -164,6 +184,11 @@ final class ProcessMonitoringCoordinator {
                     if isCodexAppRunning {
                         self.onCodexAppMaintenanceTick?()
                     }
+                    let isOpenChamberRunning = self.reconcileOpenChamberRunningState()
+                    if isOpenChamberRunning {
+                        self.onOpenChamberMaintenanceTick?()
+                    }
+                    _ = self.reconcileT3CodeRunningState()
 
                     let pollInterval = Self.monitoringPollInterval(
                         isResolvingInitialLiveSessions: self.isResolvingInitialLiveSessions,
@@ -176,6 +201,11 @@ final class ProcessMonitoringCoordinator {
                     if isCodexAppRunning {
                         self.onCodexAppMaintenanceTick?()
                     }
+                    let isOpenChamberRunning = self.reconcileOpenChamberRunningState()
+                    if isOpenChamberRunning {
+                        self.onOpenChamberMaintenanceTick?()
+                    }
+                    _ = self.reconcileT3CodeRunningState()
                     hadTrackedLiveSessions = hasTrackedLiveSessions
                 }
 
@@ -198,6 +228,26 @@ final class ProcessMonitoringCoordinator {
             onCodexAppRunningChanged?(isCodexAppRunning)
         }
         return isCodexAppRunning
+    }
+
+    @discardableResult
+    private func reconcileOpenChamberRunningState(_ observed: Bool? = nil) -> Bool {
+        let isRunning = observed ?? Self.isOpenChamberAppRunning()
+        if isRunning != wasOpenChamberRunning {
+            wasOpenChamberRunning = isRunning
+            onOpenChamberRunningChanged?(isRunning)
+        }
+        return isRunning
+    }
+
+    @discardableResult
+    private func reconcileT3CodeRunningState(_ observed: Bool? = nil) -> Bool {
+        let isRunning = observed ?? Self.isT3CodeAppRunning()
+        if isRunning != wasT3CodeRunning {
+            wasT3CodeRunning = isRunning
+            onT3CodeRunningChanged?(isRunning)
+        }
+        return isRunning
     }
 
     // MARK: - Reconciliation
@@ -682,6 +732,41 @@ final class ProcessMonitoringCoordinator {
                 if session.isSessionEnded { continue }
                 let isStale = session.phase == .completed
                     && session.updatedAt.addingTimeInterval(Self.conductorStalenessTimeout) < Date.now
+                if !isStale {
+                    aliveIDs.insert(session.id)
+                }
+            }
+        }
+
+        // OpenChamber sessions: OpenChamber runs a managed OpenCode server from
+        // inside its app bundle (no TTY). Tag comes from the OpenCode plugin.
+        // Keep OpenCode sessions alive while OpenChamber.app is running.
+        let isOpenChamberRunning = Self.isOpenChamberAppRunning()
+        if isOpenChamberRunning {
+            for session in sessions
+            where session.tool == .openCode
+                && !session.isDemoSession
+                && session.jumpTarget?.terminalApp == "OpenChamber" {
+                if session.isSessionEnded { continue }
+                let isStale = session.phase == .completed
+                    && session.updatedAt.addingTimeInterval(Self.openChamberStalenessTimeout) < Date.now
+                if !isStale {
+                    aliveIDs.insert(session.id)
+                }
+            }
+        }
+
+        // T3 Code sessions: T3 Code orchestrates Claude/Codex/Grok/OpenCode (and
+        // others) as cockpit subprocesses. Any session tagged "T3 Code" should
+        // follow the desktop app's lifetime, independent of agent tool.
+        let isT3CodeRunning = Self.isT3CodeAppRunning()
+        if isT3CodeRunning {
+            for session in sessions
+            where !session.isDemoSession
+                && session.jumpTarget?.terminalApp == "T3 Code" {
+                if session.isSessionEnded { continue }
+                let isStale = session.phase == .completed
+                    && session.updatedAt.addingTimeInterval(Self.t3CodeStalenessTimeout) < Date.now
                 if !isStale {
                     aliveIDs.insert(session.id)
                 }
@@ -1476,6 +1561,21 @@ final class ProcessMonitoringCoordinator {
         }
     }
 
+    /// Check whether OpenChamber is currently running.
+    static func isOpenChamberAppRunning() -> Bool {
+        NSWorkspace.shared.runningApplications.contains { app in
+            app.bundleIdentifier == "dev.openchamber.desktop"
+        }
+    }
+
+    /// Check whether T3 Code (stable or dev) is currently running.
+    static func isT3CodeAppRunning() -> Bool {
+        NSWorkspace.shared.runningApplications.contains { app in
+            guard let bundleID = app.bundleIdentifier?.lowercased() else { return false }
+            return bundleID == "com.t3tools.t3code" || bundleID.hasPrefix("com.t3tools.t3code.")
+        }
+    }
+
     private func processIdentityKey(_ process: ActiveProcessSnapshot) -> String {
         [
             process.sessionID,
@@ -1586,6 +1686,10 @@ final class ProcessMonitoringCoordinator {
             return "RustRover"
         case "conductor":
             return "Conductor"
+        case "openchamber", "open chamber":
+            return "OpenChamber"
+        case "t3 code", "t3code", "t3":
+            return "T3 Code"
         default:
             return nil
         }

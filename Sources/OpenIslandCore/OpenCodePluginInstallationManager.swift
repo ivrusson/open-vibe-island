@@ -10,8 +10,12 @@ public struct OpenCodePluginInstallationStatus: Equatable, Sendable {
     public var pluginRegistered: Bool
     public var manifest: OpenCodePluginInstallerManifest?
 
+    /// OpenCode auto-loads every file under `~/.config/opencode/plugins/`, so the
+    /// on-disk plugin file is enough for standalone OpenCode and for OpenChamber's
+    /// managed OpenCode (which sets `OPENCODE_CONFIG` but still loads the global
+    /// plugins directory).
     public var isInstalled: Bool {
-        pluginFilePresent && pluginRegistered
+        pluginFilePresent
     }
 
     public init(
@@ -70,8 +74,19 @@ public final class OpenCodePluginInstallationManager: @unchecked Sendable {
         pluginsDirectory.appendingPathComponent(Self.pluginFileName)
     }
 
-    private var configURL: URL {
+    /// Canonical OpenCode config (`opencode.json`). Preferred for `plugin` registration.
+    private var openCodeJSONURL: URL {
+        openCodeConfigDirectory.appendingPathComponent("opencode.json")
+    }
+
+    /// Legacy Open Island registration target kept for uninstall / status compat.
+    private var legacyConfigURL: URL {
         openCodeConfigDirectory.appendingPathComponent("config.json")
+    }
+
+    /// Status reports the canonical config path.
+    private var configURL: URL {
+        openCodeJSONURL
     }
 
     private var manifestURL: URL {
@@ -99,11 +114,15 @@ public final class OpenCodePluginInstallationManager: @unchecked Sendable {
     public func install(pluginSourceData: Data) throws -> OpenCodePluginInstallationStatus {
         try fileManager.createDirectory(at: pluginsDirectory, withIntermediateDirectories: true)
 
-        // Write the JS plugin file
+        // Write the JS plugin file. OpenCode 2 auto-loads every file under
+        // `~/.config/opencode/plugins/` (including OpenChamber's managed server).
+        // Do NOT register a file:// path in opencode.json — OpenCode 2 warns
+        // "configured plugin path must be a directory" and rejects file entries.
         try pluginSourceData.write(to: pluginFileURL, options: .atomic)
 
-        // Register in config.json
-        try registerPluginInConfig()
+        // Remove stale file:// registrations left by older installers.
+        try unregisterPluginFromConfig(at: openCodeJSONURL)
+        try unregisterPluginFromConfig(at: legacyConfigURL)
 
         // Write manifest
         let manifest = OpenCodePluginInstallerManifest(pluginPath: pluginFileURL.path)
@@ -122,8 +141,9 @@ public final class OpenCodePluginInstallationManager: @unchecked Sendable {
             try fileManager.removeItem(at: pluginFileURL)
         }
 
-        // Remove from config.json
-        try unregisterPluginFromConfig()
+        // Remove from both canonical and legacy config files
+        try unregisterPluginFromConfig(at: openCodeJSONURL)
+        try unregisterPluginFromConfig(at: legacyConfigURL)
 
         // Remove manifest
         if fileManager.fileExists(atPath: manifestURL.path) {
@@ -133,83 +153,51 @@ public final class OpenCodePluginInstallationManager: @unchecked Sendable {
         return try status()
     }
 
-    // MARK: - Config.json manipulation
+    // MARK: - Config manipulation
 
     private func pluginFileReference() -> String {
         "file://\(pluginFileURL.path)"
     }
 
+    /// Directory autoload counts as "registered" for OpenCode 2. Stale file://
+    /// entries in config files are cleaned on install/uninstall but are not
+    /// required for the plugin to load.
     private func isPluginRegistered() -> Bool {
-        guard let data = try? Data(contentsOf: configURL),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let plugins = json["plugin"] as? [String] else {
-            return false
-        }
-
-        let ref = pluginFileReference()
-        return plugins.contains { $0 == ref || $0.hasSuffix("/\(Self.pluginFileName)") }
+        fileManager.fileExists(atPath: pluginFileURL.path)
     }
 
-    private func registerPluginInConfig() throws {
-        let ref = pluginFileReference()
-
-        var json: [String: Any]
-        if let data = try? Data(contentsOf: configURL),
-           let existing = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            json = existing
-        } else {
-            json = [:]
+    private func unregisterPluginFromConfig(at url: URL) throws {
+        guard fileManager.fileExists(atPath: url.path),
+              let data = try? Data(contentsOf: url),
+              var json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return
         }
 
-        var plugins = (json["plugin"] as? [String]) ?? []
-
-        // Remove any existing Open Island plugin references
-        plugins.removeAll { $0 == ref || $0.hasSuffix("/\(Self.pluginFileName)") }
-        plugins.append(ref)
-
-        json["plugin"] = plugins
-
-        if fileManager.fileExists(atPath: configURL.path) {
-            try backupFile(at: configURL)
+        // OpenCode historically used `plugin`; some tools write `plugins`.
+        var changed = false
+        for key in ["plugin", "plugins"] {
+            guard var plugins = json[key] as? [String] else { continue }
+            let before = plugins.count
+            let ref = pluginFileReference()
+            plugins.removeAll { $0 == ref || $0.hasSuffix("/\(Self.pluginFileName)") }
+            guard plugins.count != before else { continue }
+            changed = true
+            if plugins.isEmpty {
+                json.removeValue(forKey: key)
+            } else {
+                json[key] = plugins
+            }
         }
+
+        guard changed else { return }
+
+        try backupFile(at: url)
 
         let outputData = try JSONSerialization.data(
             withJSONObject: json,
             options: [.prettyPrinted, .sortedKeys]
         )
-        try outputData.write(to: configURL, options: .atomic)
-    }
-
-    private func unregisterPluginFromConfig() throws {
-        guard let data = try? Data(contentsOf: configURL),
-              var json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              var plugins = json["plugin"] as? [String] else {
-            return
-        }
-
-        let ref = pluginFileReference()
-        let before = plugins.count
-        plugins.removeAll { $0 == ref || $0.hasSuffix("/\(Self.pluginFileName)") }
-
-        guard plugins.count != before else {
-            return
-        }
-
-        if fileManager.fileExists(atPath: configURL.path) {
-            try backupFile(at: configURL)
-        }
-
-        if plugins.isEmpty {
-            json.removeValue(forKey: "plugin")
-        } else {
-            json["plugin"] = plugins
-        }
-
-        let outputData = try JSONSerialization.data(
-            withJSONObject: json,
-            options: [.prettyPrinted, .sortedKeys]
-        )
-        try outputData.write(to: configURL, options: .atomic)
+        try outputData.write(to: url, options: .atomic)
     }
 
     // MARK: - Helpers

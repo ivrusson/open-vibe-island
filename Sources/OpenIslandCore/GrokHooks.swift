@@ -509,6 +509,17 @@ public extension GrokHookPayload {
             return "Zellij"
         }
 
+        // T3 Code hosts Grok Build as a cockpit subprocess.
+        if let bundleID = environment["__CFBundleIdentifier"]?.lowercased(),
+           bundleID == "com.t3tools.t3code" || bundleID.hasPrefix("com.t3tools.t3code.") {
+            return "T3 Code"
+        }
+        if environment["T3CODE_HOME"]?.isEmpty == false
+            || environment["T3CODE_MODE"]?.isEmpty == false
+            || environment["T3CODE_WORKTREE_PATH"]?.isEmpty == false {
+            return "T3 Code"
+        }
+
         if let termProgram = environment["TERM_PROGRAM"]?.lowercased(), !termProgram.isEmpty {
             switch termProgram {
             case "apple_terminal": return "Terminal"

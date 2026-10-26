@@ -87,6 +87,26 @@ struct CodexHooksTests {
     }
 
     @Test
+    func codexWithRuntimeContextDetectsT3CodeHost() {
+        let payload = CodexHookPayload(
+            cwd: "/Users/u/project",
+            hookEventName: .sessionStart,
+            model: "gpt-4o",
+            permissionMode: .default,
+            sessionID: "s1",
+            transcriptPath: nil
+        ).withRuntimeContext(
+            environment: ["__CFBundleIdentifier": "com.t3tools.t3code"],
+            currentTTYProvider: { nil },
+            terminalLocatorProvider: { _ in (sessionID: nil, tty: nil, title: nil) },
+            warpPaneResolver: { _ in nil }
+        )
+
+        #expect(payload.terminalApp == "T3 Code")
+        #expect(payload.defaultJumpTarget.terminalApp == "T3 Code")
+    }
+
+    @Test
     func codexPermissionRequestPayloadAcceptsDescriptionOnlyToolInput() throws {
         let data = """
         {

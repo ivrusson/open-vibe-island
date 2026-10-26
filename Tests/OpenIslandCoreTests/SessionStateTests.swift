@@ -181,6 +181,69 @@ struct SessionStateTests {
         #expect(state.session(id: "conductor-1")?.isVisibleInIsland == false)
     }
 
+    /// OpenChamber-hosted OpenCode sessions are TTY-less and rely on the same
+    /// hook-managed alive-set contract as Conductor / Claude Desktop.
+    @Test
+    func hookManagedOpenChamberSessionLivenessFollowsReportedAliveSet() {
+        var session = AgentSession(
+            id: "opencode-chamber-1",
+            title: "OpenCode · demo",
+            tool: .openCode,
+            phase: .running,
+            summary: "Working",
+            updatedAt: Date(timeIntervalSince1970: 1_000)
+        )
+        session.isHookManaged = true
+        session.isProcessAlive = true
+        session.jumpTarget = JumpTarget(
+            terminalApp: "OpenChamber",
+            workspaceName: "demo",
+            paneTitle: "OpenCode"
+        )
+        var state = SessionState(sessions: [session])
+
+        state.markProcessLiveness(aliveSessionIDs: ["opencode-chamber-1"])
+        state.markProcessLiveness(aliveSessionIDs: ["opencode-chamber-1"])
+        #expect(state.session(id: "opencode-chamber-1")?.isSessionEnded == false)
+        #expect(state.session(id: "opencode-chamber-1")?.isVisibleInIsland == true)
+
+        state.markProcessLiveness(aliveSessionIDs: [])
+        #expect(state.session(id: "opencode-chamber-1")?.isSessionEnded == false)
+
+        state.markProcessLiveness(aliveSessionIDs: [])
+        #expect(state.session(id: "opencode-chamber-1")?.isSessionEnded == true)
+        #expect(state.session(id: "opencode-chamber-1")?.isVisibleInIsland == false)
+    }
+
+    /// T3 Code-hosted agent sessions follow the cockpit app via the alive set.
+    @Test
+    func hookManagedT3CodeSessionLivenessFollowsReportedAliveSet() {
+        var session = AgentSession(
+            id: "t3-claude-1",
+            title: "Claude · demo",
+            tool: .claudeCode,
+            phase: .running,
+            summary: "Working",
+            updatedAt: Date(timeIntervalSince1970: 1_000)
+        )
+        session.isHookManaged = true
+        session.isProcessAlive = true
+        session.jumpTarget = JumpTarget(
+            terminalApp: "T3 Code",
+            workspaceName: "demo",
+            paneTitle: "Claude"
+        )
+        var state = SessionState(sessions: [session])
+
+        state.markProcessLiveness(aliveSessionIDs: ["t3-claude-1"])
+        #expect(state.session(id: "t3-claude-1")?.isVisibleInIsland == true)
+
+        state.markProcessLiveness(aliveSessionIDs: [])
+        state.markProcessLiveness(aliveSessionIDs: [])
+        #expect(state.session(id: "t3-claude-1")?.isSessionEnded == true)
+        #expect(state.session(id: "t3-claude-1")?.isVisibleInIsland == false)
+    }
+
     @Test
     func piHeartbeatOwnsLivenessWithoutChangingTurnPresentation() {
         let startedAt = Date(timeIntervalSince1970: 1_000)

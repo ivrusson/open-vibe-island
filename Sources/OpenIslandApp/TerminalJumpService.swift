@@ -138,6 +138,17 @@ struct TerminalJumpService {
             aliases: ["conductor"]
         ),
         TerminalAppDescriptor(
+            displayName: "OpenChamber",
+            bundleIdentifier: "dev.openchamber.desktop",
+            aliases: ["openchamber", "open chamber"]
+        ),
+        TerminalAppDescriptor(
+            displayName: "T3 Code",
+            bundleIdentifier: "com.t3tools.t3code",
+            aliases: ["t3 code", "t3code", "t3"],
+            alternateBundleIdentifiers: ["com.t3tools.t3code.dev"]
+        ),
+        TerminalAppDescriptor(
             displayName: "IntelliJ IDEA",
             bundleIdentifier: "com.jetbrains.intellij",
             aliases: ["intellij", "idea"]
@@ -369,6 +380,14 @@ struct TerminalJumpService {
                 // No per-session deep link; bring the app forward, like Claude.app.
                 try openAction(["-b", "com.conductor.app"])
                 return "Activated Conductor."
+            case "dev.openchamber.desktop":
+                // OpenChamber hosts OpenCode in-app; no per-session deep link yet.
+                try openAction(["-b", "dev.openchamber.desktop"])
+                return "Activated OpenChamber."
+            case "com.t3tools.t3code", "com.t3tools.t3code.dev":
+                // T3 Code hosts provider agents in-app; activate the cockpit.
+                try openAction(["-b", resolvedBundleIdentifier ?? "com.t3tools.t3code"])
+                return "Activated T3 Code."
             case "com.googlecode.iterm2":
                 if try jumpToITermSession(target) {
                     return "Focused the matching iTerm session."

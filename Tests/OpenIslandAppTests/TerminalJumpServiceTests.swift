@@ -451,6 +451,68 @@ struct TerminalJumpServiceTests {
     }
 
     @Test
+    func openChamberJumpActivatesOpenChamberApp() throws {
+        let openedArguments = OpenedArgumentsBox()
+        let service = TerminalJumpService(
+            applicationResolver: { bundleIdentifier in
+                bundleIdentifier == "dev.openchamber.desktop"
+                    ? URL(fileURLWithPath: "/Applications/OpenChamber.app")
+                    : nil
+            },
+            appRunningChecker: { bundleIdentifier in
+                bundleIdentifier == "dev.openchamber.desktop"
+            },
+            openAction: { arguments in
+                openedArguments.values.append(arguments)
+            },
+            appleScriptRunner: { _ in "" }
+        )
+
+        let result = try service.jump(
+            to: JumpTarget(
+                terminalApp: "OpenChamber",
+                workspaceName: "my-project",
+                paneTitle: "",
+                workingDirectory: "/Users/test/my-project"
+            )
+        )
+
+        #expect(result == "Activated OpenChamber.")
+        #expect(openedArguments.values == [["-b", "dev.openchamber.desktop"]])
+    }
+
+    @Test
+    func t3CodeJumpActivatesT3CodeApp() throws {
+        let openedArguments = OpenedArgumentsBox()
+        let service = TerminalJumpService(
+            applicationResolver: { bundleIdentifier in
+                bundleIdentifier == "com.t3tools.t3code"
+                    ? URL(fileURLWithPath: "/Applications/T3 Code (Beta).app")
+                    : nil
+            },
+            appRunningChecker: { bundleIdentifier in
+                bundleIdentifier == "com.t3tools.t3code"
+            },
+            openAction: { arguments in
+                openedArguments.values.append(arguments)
+            },
+            appleScriptRunner: { _ in "" }
+        )
+
+        let result = try service.jump(
+            to: JumpTarget(
+                terminalApp: "T3 Code",
+                workspaceName: "my-project",
+                paneTitle: "",
+                workingDirectory: "/Users/test/my-project"
+            )
+        )
+
+        #expect(result == "Activated T3 Code.")
+        #expect(openedArguments.values == [["-b", "com.t3tools.t3code"]])
+    }
+
+    @Test
     func codexAppJumpOpensSpecificThreadWhenThreadIDProvided() throws {
         let openedArguments = OpenedArgumentsBox()
         let service = TerminalJumpService(

@@ -401,6 +401,46 @@ struct ClaudeHooksTests {
         #expect(payload.terminalApp != "Conductor")
     }
 
+    @Test
+    func claudeInferTerminalAppRecognizesT3CodeViaBundleIdentifier() {
+        let payload = ClaudeHookPayload(
+            cwd: "/tmp/demo", hookEventName: .sessionStart, sessionID: "s1"
+        ).withRuntimeContext(
+            environment: ["__CFBundleIdentifier": "com.t3tools.t3code"],
+            currentTTYProvider: { nil },
+            terminalLocatorProvider: { _ in (sessionID: nil, tty: nil, title: nil) }
+        )
+
+        #expect(payload.terminalApp == "T3 Code")
+        #expect(payload.defaultJumpTarget.terminalApp == "T3 Code")
+    }
+
+    @Test
+    func claudeInferTerminalAppRecognizesT3CodeViaHomeEnv() {
+        let payload = ClaudeHookPayload(
+            cwd: "/tmp/demo", hookEventName: .sessionStart, sessionID: "s1"
+        ).withRuntimeContext(
+            environment: ["T3CODE_HOME": "/Users/demo/Library/Application Support/t3code-v2"],
+            currentTTYProvider: { nil },
+            terminalLocatorProvider: { _ in (sessionID: nil, tty: nil, title: nil) }
+        )
+
+        #expect(payload.terminalApp == "T3 Code")
+    }
+
+    @Test
+    func claudeInferTerminalAppIgnoresEmptyT3CodeMarkers() {
+        let payload = ClaudeHookPayload(
+            cwd: "/tmp/demo", hookEventName: .sessionStart, sessionID: "s1"
+        ).withRuntimeContext(
+            environment: ["T3CODE_HOME": "", "T3CODE_MODE": ""],
+            currentTTYProvider: { nil },
+            terminalLocatorProvider: { _ in (sessionID: nil, tty: nil, title: nil) }
+        )
+
+        #expect(payload.terminalApp != "T3 Code")
+    }
+
     /// Verifies a Claude Desktop session is tagged `Claude.app` via the
     /// authoritative `CLAUDE_CODE_ENTRYPOINT=claude-desktop` signal. The
     /// desktop subprocess is TTY-less and invisible to process discovery, so

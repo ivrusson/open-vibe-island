@@ -605,6 +605,17 @@ struct ActiveAgentProcessDiscovery {
             || lowered.contains("/com.conductor.app/") {
             return "Conductor"
         }
+        // OpenChamber runs a bundled OpenCode CLI from inside its app resources.
+        if lowered.contains("/openchamber.app/")
+            || lowered.contains("/dev.openchamber.desktop/") {
+            return "OpenChamber"
+        }
+        // T3 Code hosts provider CLIs from its Electron app / server process.
+        if lowered.contains("/t3 code")
+            || lowered.contains("/t3code")
+            || lowered.contains("/com.t3tools.t3code") {
+            return "T3 Code"
+        }
         if lowered.contains("/qoder.app/") {
             return "Qoder"
         }

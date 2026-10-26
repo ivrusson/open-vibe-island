@@ -1199,6 +1199,18 @@ public extension ClaudeHookPayload {
             return "Conductor"
         }
 
+        // T3 Code hosts Claude Code as a cockpit subprocess. Prefer its app
+        // identity over a leaked TERM_PROGRAM so jump-back activates T3 Code.
+        if let bundleID = environment["__CFBundleIdentifier"]?.lowercased(),
+           bundleID == "com.t3tools.t3code" || bundleID.hasPrefix("com.t3tools.t3code.") {
+            return "T3 Code"
+        }
+        if environment["T3CODE_HOME"]?.isEmpty == false
+            || environment["T3CODE_MODE"]?.isEmpty == false
+            || environment["T3CODE_WORKTREE_PATH"]?.isEmpty == false {
+            return "T3 Code"
+        }
+
         // TERM_PROGRAM is the only authoritative terminal signal. Each
         // terminal sets it explicitly when it execs the user's shell, so
         // unlike per-app env vars (GHOSTTY_RESOURCES_DIR,
