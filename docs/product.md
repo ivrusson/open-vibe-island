@@ -46,6 +46,9 @@ CLI coding agents are powerful, but they pull attention away from the editor and
 | **iTerm2** | Full Support | Jump-back with session ID / TTY matching |
 | **tmux** (multiplexer) | Full Support | Jump-back with session/window/pane targeting |
 | **Warp** | Planned | Fallback detection only |
+| **Conductor** | App | Claude Code cockpit — activate Conductor |
+| **OpenChamber** | App | OpenCode cockpit — connect to managed OpenCode server; activate OpenChamber |
+| **T3 Code** | App | Multi-agent cockpit — poll local T3 sessions; activate T3 Code |
 
 ## Features
 

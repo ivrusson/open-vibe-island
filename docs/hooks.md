@@ -511,6 +511,11 @@ The hook process infers the terminal type from environment variables at runtime:
 | `WARP_IS_LOCAL_SHELL_SESSION` | `Warp` |
 | `TERM_PROGRAM=Apple_Terminal` | `Terminal` |
 | `TERM_PROGRAM=WezTerm` | `WezTerm` |
+| `__CFBundleIdentifier=dev.openchamber.desktop` / `OPENCHAMBER_*` | `OpenChamber` (OpenCode plugin) |
+| `__CFBundleIdentifier=com.t3tools.t3code` / `T3CODE_*` | `T3 Code` (Claude, Codex, Grok, OpenCode) |
+| `CONDUCTOR_SESSION_ID` / `CONDUCTOR_WORKSPACE_ID` | `Conductor` (Claude) |
+
+Cockpit hosts (OpenChamber, T3 Code, Conductor, Claude.app, Codex.app) are checked before `TERM_PROGRAM` so a leaked parent-shell terminal name does not steal jump-back. **Primary** OpenChamber/T3 integration is server-side (managed OpenCode SSE and T3 local userdata poll); hooks/plugin host-tagging are fail-open fallbacks. OpenChamber UI extensions (`@openchamber/sdk`) are not used for island bridging. See [openchamber-t3-support.md](./openchamber-t3-support.md).
 
 For iTerm, Terminal, and Ghostty the process additionally runs an AppleScript query to obtain the session ID, TTY, and window title — used to power the "jump back to terminal" feature. The `cmux` terminal uses `CMUX_SURFACE_ID` instead of AppleScript.
 

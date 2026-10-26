@@ -52,7 +52,7 @@ Think of it as an open-source [Vibe Island](https://vibeisland.app/) — **free,
 
 **15 agents**: Claude Code, Codex, Cursor, Gemini CLI, Grok Build, Kimi CLI, OpenCode, Pi, Oh My Pi, Qoder, Qwen Code, Factory, CodeBuddy, ZCode, Hermes Agent
 
-**15+ terminals & IDEs**: Terminal.app, Ghostty, iTerm2, WezTerm, Zellij, tmux, cmux, Kaku, VS Code, Cursor, Windsurf, Trae, Zed, JetBrains IDEs (IDEA, WebStorm, PyCharm, GoLand, CLion, RubyMine, PhpStorm, Rider, RustRover)
+**15+ terminals & IDEs**: Terminal.app, Ghostty, iTerm2, WezTerm, Zellij, tmux, cmux, Kaku, VS Code, Cursor, Windsurf, Trae, Zed, JetBrains IDEs (IDEA, WebStorm, PyCharm, GoLand, CLion, RubyMine, PhpStorm, Rider, RustRover), Conductor, OpenChamber, T3 Code
 
 <details>
 <summary>Full compatibility table</summary>
@@ -99,6 +99,8 @@ Think of it as an open-source [Vibe Island](https://vibeisland.app/) — **free,
 | **JetBrains IDEs** | Workspace | IDEA, WebStorm, PyCharm, GoLand, CLion, RubyMine, PhpStorm, Rider, RustRover |
 | **Warp** | Full | Precision tab jump via SQLite pane lookup + AX menu click |
 | **Conductor** | App | Detect via environment (`CONDUCTOR_SESSION_ID`); activate the Conductor app |
+| **OpenChamber** | App | OpenCode cockpit — connect to managed `opencode serve` (SSE/HTTP); activate OpenChamber; OpenCode plugin is fallback only |
+| **T3 Code** | App | Multi-agent cockpit — poll local T3 userdata for active threads; activate T3 Code; provider hooks are fallback only |
 
 ### Other Features
 
